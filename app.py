@@ -5,6 +5,7 @@ import torch
 import numpy as np
 from transformers import BertTokenizer, BertModel
 import traceback
+import os
 
 # Configuration
 class Config:
@@ -110,6 +111,40 @@ class AdvancedBERTSkipRNN(torch.nn.Module):
         logits_severity = self.severity_classifier(self.dropout(combined))
         return logits_offense, logits_severity
 
+def extract_model_if_zipped():
+    zip_path = 'best_model.zip'
+    pt_path = 'best_model.pt'
+    
+    # If .pt already exists and is valid, skip extraction
+    if os.path.exists(pt_path):
+        try:
+            # Quick validation - try to load first few bytes
+            with open(pt_path, 'rb') as f:
+                header = f.read(2)
+                if header == b'\x80\x02' or header == b'\x80\x03':  # PyTorch pickle magic numbers
+                    print(f"✅ {pt_path} already exists and looks valid")
+                    return True
+        except:
+            pass
+    
+    # Extract from zip if available
+    if os.path.exists(zip_path):
+        print(f"📦 Extracting {zip_path}...")
+        try:
+            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                zip_ref.extractall('.')
+            print(f"✅ Extracted {pt_path} from zip")
+            return True
+        except Exception as e:
+            print(f"❌ Failed to extract zip: {e}")
+            return False
+    else:
+        print(f"⚠️ No {zip_path} or {pt_path} found")
+        return False
+
+# Run extraction before loading model
+extract_model_if_zipped()
+
 # Load Model
 print("Loading tokenizer and model...")
 try:
@@ -125,7 +160,7 @@ try:
             checkpoint = torch.load(
                 checkpoint_file, 
                 map_location=config.DEVICE,
-                weights_only=False  # I-set sa False para gumana
+                weights_only=False
             )
             
             if isinstance(checkpoint, dict) and 'model_state_dict' in checkpoint:
