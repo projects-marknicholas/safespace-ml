@@ -117,7 +117,7 @@ try:
     model = AdvancedBERTSkipRNN(config)
     
     # Try different checkpoint formats
-    checkpoint_files = ['harassment_model_full.pt', 'best_model.pt']
+    checkpoint_files = ['best_model.pt']
     loaded = False
     
     for checkpoint_file in checkpoint_files:
