@@ -4,3 +4,4 @@ torch
 transformers
 numpy
 huggingface-hub
+gunicorn
