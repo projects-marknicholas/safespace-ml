@@ -122,7 +122,11 @@ try:
     
     for checkpoint_file in checkpoint_files:
         try:
-            checkpoint = torch.load(checkpoint_file, map_location=config.DEVICE)
+            checkpoint = torch.load(
+                checkpoint_file, 
+                map_location=config.DEVICE,
+                weights_only=False  # I-set sa False para gumana
+            )
             
             if isinstance(checkpoint, dict) and 'model_state_dict' in checkpoint:
                 model.load_state_dict(checkpoint['model_state_dict'])
