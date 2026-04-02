@@ -5,7 +5,7 @@ import torch
 import numpy as np
 from transformers import BertTokenizer, BertModel
 import traceback
-import os
+from huggingface_hub import hf_hub_download
 
 # Configuration
 class Config:
@@ -111,79 +111,44 @@ class AdvancedBERTSkipRNN(torch.nn.Module):
         logits_severity = self.severity_classifier(self.dropout(combined))
         return logits_offense, logits_severity
 
-def extract_model_if_zipped():
-    zip_path = 'best_model.zip'
-    pt_path = 'best_model.pt'
-    
-    # If .pt already exists and is valid, skip extraction
-    if os.path.exists(pt_path):
-        try:
-            # Quick validation - try to load first few bytes
-            with open(pt_path, 'rb') as f:
-                header = f.read(2)
-                if header == b'\x80\x02' or header == b'\x80\x03':  # PyTorch pickle magic numbers
-                    print(f"✅ {pt_path} already exists and looks valid")
-                    return True
-        except:
-            pass
-    
-    # Extract from zip if available
-    if os.path.exists(zip_path):
-        print(f"📦 Extracting {zip_path}...")
-        try:
-            with zipfile.ZipFile(zip_path, 'r') as zip_ref:
-                zip_ref.extractall('.')
-            print(f"✅ Extracted {pt_path} from zip")
-            return True
-        except Exception as e:
-            print(f"❌ Failed to extract zip: {e}")
-            return False
-    else:
-        print(f"⚠️ No {zip_path} or {pt_path} found")
-        return False
-
-# Run extraction before loading model
-extract_model_if_zipped()
-
 # Load Model
 print("Loading tokenizer and model...")
 try:
     tokenizer = BertTokenizer.from_pretrained(config.BERT_MODEL)
     model = AdvancedBERTSkipRNN(config)
-    
-    # Try different checkpoint formats
-    checkpoint_files = ['best_model.pt']
+
+    print("Downloading model from Hugging Face Hub...")
+    checkpoint_path = hf_hub_download(repo_id="marknicholas/uplb-oash", filename="best_model.pt")
+    print(f"Model downloaded to {checkpoint_path}")
+
+    checkpoint_files = [checkpoint_path]
     loaded = False
-    
+
     for checkpoint_file in checkpoint_files:
         try:
-            checkpoint = torch.load(
-                checkpoint_file, 
-                map_location=config.DEVICE,
-                weights_only=False
-            )
-            
+            checkpoint = torch.load(checkpoint_file, map_location=config.DEVICE)
+
             if isinstance(checkpoint, dict) and 'model_state_dict' in checkpoint:
                 model.load_state_dict(checkpoint['model_state_dict'])
                 print(f"Loaded model from {checkpoint_file} (full checkpoint format)")
             else:
                 model.load_state_dict(checkpoint)
                 print(f"Loaded model from {checkpoint_file} (state dict format)")
-            
+
             loaded = True
             break
         except FileNotFoundError:
             print(f"File {checkpoint_file} not found, trying next...")
         except Exception as e:
             print(f"Error loading {checkpoint_file}: {e}")
-    
+
     if not loaded:
         raise Exception("No valid checkpoint file found")
-    
+
     model.to(config.DEVICE)
     model.eval()
     print(f"Model loaded successfully on {config.DEVICE}")
-    
+
 except Exception as e:
     print(f"Error loading model: {e}")
     traceback.print_exc()
@@ -348,4 +313,4 @@ def home():
     })
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=8000, debug=True)  # Set debug=True for more detailed errors
+    app.run(host='0.0.0.0', port=7860, debug=True)
